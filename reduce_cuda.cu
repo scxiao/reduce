@@ -4,6 +4,7 @@
 #include <iostream>
 #include <iomanip>
 #include <cuda.h>
+#include <sys/time.h>
 
 __global__ void reduce_block(float* g_idata, int reduce_size, float* g_odata)
 {
@@ -46,9 +47,17 @@ void reduce_cuda(const std::vector<float>& vec, int reduce_size, std::vector<flo
     cudaMemcpy(dev_idata, vec.data(), elem_num * sizeof(float), cudaMemcpyHostToDevice);
   
     int block_size = 128;
-    reduce_block<<<block_num, block_size, block_size * sizeof(float)>>>(dev_idata, reduce_size, dev_odata);
 
+    timeval t1, t2;
+    gettimeofday(&t1, nullptr);
+    reduce_block<<<block_num, block_size, block_size * sizeof(float)>>>(dev_idata, reduce_size, dev_odata);
+    cudaDeviceSynchronize();
+    gettimeofday(&t2, nullptr);
+
+    float ms = (t2.tv_sec - t1.tv_sec) * 1000.0f + (t2.tv_usec - t1.tv_usec) / 1000.0f;
+    std::cout << "Kernel takes " << ms << " ms" << std::endl;
     cudaMemcpy(vec_out.data(), dev_odata, block_num * sizeof(float), cudaMemcpyDeviceToHost);
+
     cudaFree(dev_idata);
     cudaFree(dev_odata);
 }
